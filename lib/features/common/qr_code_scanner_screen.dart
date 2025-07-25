@@ -1,18 +1,13 @@
 import 'dart:async';
-import 'dart:developer';
 
 import 'package:dartx/dartx.dart';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_easy_permission/easy_permissions.dart';
 import 'package:hiddify/core/localization/translations.dart';
 import 'package:hiddify/utils/utils.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-// import 'package:permission_handler/permission_handler.dart';
-
-const permissions = [Permissions.CAMERA];
-const permissionGroup = [PermissionGroup.Camera];
+import 'package:permission_handler/permission_handler.dart';
 
 class QRCodeScannerScreen extends StatefulHookConsumerWidget {
   const QRCodeScannerScreen({super.key});
@@ -27,10 +22,12 @@ class QRCodeScannerScreen extends StatefulHookConsumerWidget {
   }
 
   @override
-  ConsumerState<QRCodeScannerScreen> createState() => _QRCodeScannerScreenState();
+  ConsumerState<QRCodeScannerScreen> createState() =>
+      _QRCodeScannerScreenState();
 }
 
-class _QRCodeScannerScreenState extends ConsumerState<QRCodeScannerScreen> with WidgetsBindingObserver, PresLogger {
+class _QRCodeScannerScreenState extends ConsumerState<QRCodeScannerScreen>
+    with WidgetsBindingObserver, PresLogger {
   final MobileScannerController controller = MobileScannerController(
     detectionTimeoutMs: 500,
     autoStart: false,
@@ -62,39 +59,11 @@ class _QRCodeScannerScreenState extends ConsumerState<QRCodeScannerScreen> with 
   }
 
   Future<bool> _requestCameraPermission() async {
-    final hasPermission = await FlutterEasyPermission.has(
-      perms: permissions,
-      permsGroup: permissionGroup,
-    );
+    final hasPermission = await Permission.camera.status.isGranted;
 
     if (hasPermission) return true;
 
-    final completer = Completer<bool>();
-
-    void permissionCallback(int requestCode, List<Permissions>? perms, PermissionGroup? perm) {
-      if (!completer.isCompleted) {
-        completer.complete(true);
-      }
-    }
-
-    void permissionDeniedCallback(int requestCode, List<Permissions>? perms, PermissionGroup? perm, bool isPermanent) {
-      if (!completer.isCompleted) {
-        completer.complete(false);
-      }
-    }
-
-    FlutterEasyPermission().addPermissionCallback(
-      onGranted: permissionCallback,
-      onDenied: permissionDeniedCallback,
-    );
-
-    FlutterEasyPermission.request(
-      perms: permissions,
-      permsGroup: permissionGroup,
-      rationale: "Camera permission is required to scan QR codes.",
-    );
-
-    return completer.future;
+    return await Permission.camera.request().isGranted;
   }
 
   Future<void> _initializeScanner() async {
@@ -110,7 +79,6 @@ class _QRCodeScannerScreenState extends ConsumerState<QRCodeScannerScreen> with 
   void dispose() {
     controller.dispose();
     // _easyPermission.dispose();
-    FlutterEasyPermission().dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -124,11 +92,8 @@ class _QRCodeScannerScreenState extends ConsumerState<QRCodeScannerScreen> with 
   }
 
   Future<void> _checkPermissionAndStartScanner() async {
-    final hasPermission = await FlutterEasyPermission.has(
-      perms: permissions,
-      permsGroup: permissionGroup,
-    );
-    if (hasPermission) {
+    if (await Permission.camera.status.isGranted ||
+        await Permission.camera.request().isGranted) {
       _startScanner();
     } else {
       setState(() {}); // Trigger rebuild to show permission denied UI
@@ -148,14 +113,9 @@ class _QRCodeScannerScreenState extends ConsumerState<QRCodeScannerScreen> with 
   }
 
   Future<void> startQrScannerIfPermissionIsGranted() async {
-    final hasPermission = await FlutterEasyPermission.has(
-      perms: permissions,
-      permsGroup: permissionGroup,
-    );
-    if (hasPermission) {
+    if (await Permission.camera.status.isGranted ||
+        await Permission.camera.request().isGranted) {
       _startScanner();
-      // } else {
-      //   _showPermissionDialog();
     }
   }
 
@@ -175,24 +135,14 @@ class _QRCodeScannerScreenState extends ConsumerState<QRCodeScannerScreen> with 
   //   });
   // }
 
-  void _showPermissionDialog() {
-    FlutterEasyPermission.showAppSettingsDialog(
-      title: "Camera Access Required",
-      rationale: "Permission to camera to scan QR Code",
-      positiveButtonText: "Settings",
-      negativeButtonText: "Cancel",
-    );
-  }
+  void _showPermissionDialog() {}
 
   @override
   Widget build(BuildContext context) {
     final Translations t = ref.watch(translationsProvider);
 
     return FutureBuilder(
-      future: FlutterEasyPermission.has(
-        perms: permissions,
-        permsGroup: permissionGroup,
-      ),
+      future: Permission.camera.status.isGranted,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -264,7 +214,8 @@ class _QRCodeScannerScreenState extends ConsumerState<QRCodeScannerScreen> with 
                 final uri = Uri.tryParse(rawData);
                 if (context.mounted && uri != null) {
                   loggy.debug('captured url: [$uri]');
-                  Navigator.of(context, rootNavigator: true).pop(uri.toString());
+                  Navigator.of(context, rootNavigator: true)
+                      .pop(uri.toString());
                 }
               } else {
                 loggy.warning("unable to capture");
@@ -272,7 +223,8 @@ class _QRCodeScannerScreenState extends ConsumerState<QRCodeScannerScreen> with 
             },
             errorBuilder: (_, error, __) {
               final message = switch (error.errorCode) {
-                MobileScannerErrorCode.permissionDenied => t.profile.add.qrScanner.permissionDeniedError,
+                MobileScannerErrorCode.permissionDenied =>
+                  t.profile.add.qrScanner.permissionDeniedError,
                 _ => t.profile.add.qrScanner.unexpectedError,
               };
 

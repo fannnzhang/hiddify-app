@@ -85,27 +85,23 @@ macos-install-dependencies:
 	npm install -g appdmg
 	dart pub global activate flutter_distributor
 
-ios-install-dependencies: 
-	if [ "$(flutter)" = "true" ]; then \
-		curl -L -o ~/Downloads/flutter_macos_3.19.3-stable.zip https://storage.googleapis.com/flutter_infra_release/releases/stable/macos/flutter_macos_3.22.3-stable.zip; \
-		mkdir -p ~/develop; \
-		cd ~/develop; \
-		unzip ~/Downloads/flutter_macos_3.22.3-stable.zip; \
-		export PATH="$$PATH:$$HOME/develop/flutter/bin"; \
-		echo 'export PATH="$$PATH:$$HOME/develop/flutter/bin"' >> ~/.zshrc; \
-		export PATH="$PATH:$HOME/develop/flutter/bin"; \
-		echo 'export PATH="$PATH:$HOME/develop/flutter/bin"' >> ~/.zshrc; \
-		curl -sSL https://rvm.io/mpapis.asc | gpg --import -; \
-		curl -sSL https://rvm.io/pkuczynski.asc | gpg --import -; \
-		curl -sSL https://get.rvm.io | bash -s stable; \
-		brew install openssl@1.1; \
-		PKG_CONFIG_PATH=$(brew --prefix openssl@1.1)/lib/pkgconfig rvm install 2.7.5; \
-		sudo gem install cocoapods -V; \
-	fi
-	brew install create-dmg tree 
-	npm install -g appdmg
-	
-	dart pub global activate flutter_distributor
+ios-install-dependencies:
+	@echo "Installing Flutter and Cocoapods for iOS..."
+	@curl -L -o ~/Downloads/flutter_macos_3.22.3-stable.zip https://storage.googleapis.com/flutter_infra_release/releases/stable/macos/flutter_macos_3.22.3-stable.zip
+	@mkdir -p ~/develop
+	@cd ~/develop && unzip ~/Downloads/flutter_macos_3.22.3-stable.zip
+	@echo 'export PATH="$$HOME/develop/flutter/bin:$$PATH"' >> ~/.zshrc
+
+	@curl -sSL https://rvm.io/mpapis.asc | gpg --import -
+	@curl -sSL https://rvm.io/pkuczynski.asc | gpg --import -
+	@curl -sSL https://get.rvm.io | bash -s stable
+	@brew install openssl@1.1
+	@PKG_CONFIG_PATH=$$(brew --prefix openssl@1.1)/lib/pkgconfig rvm install 2.7.5
+	@sudo gem install cocoapods -V
+
+	@brew install create-dmg tree
+	@npm install -g appdmg
+	@dart pub global activate flutter_distributor
 	
 
 android-install-dependencies: 
@@ -114,27 +110,23 @@ android-apk-install-dependencies: android-install-dependencies
 android-aab-install-dependencies: android-install-dependencies
 
 linux-install-dependencies:
-	if [ "$(flutter)" = "true" ]; then \
-		mkdir -p ~/develop; \
-		cd ~/develop; \
-		wget -O flutter_linux-stable.tar.xz https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.19.4-stable.tar.xz; \
-		tar xf flutter_linux-stable.tar.xz; \
-		rm flutter_linux-stable.tar.xz;\
-		export PATH="$$PATH:$$HOME/develop/flutter/bin"; \
-		echo 'export PATH="$$PATH:$$HOME/develop/flutter/bin"' >> ~/.bashrc; \
-	fi
-	PATH="$$PATH":"$$HOME/.pub-cache/bin"
-	echo 'export PATH="$$PATH:$$HOME/.pub-cache/bin"' >>~/.bashrc
-	sudo apt-get update
-	sudo apt install -y clang ninja-build pkg-config cmake libgtk-3-dev locate ninja-build pkg-config libglib2.0-dev libgio2.0-cil-dev libayatana-appindicator3-dev fuse rpm patchelf file appstream 
-	
-	
-	sudo modprobe fuse
-	wget -O appimagetool "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
-	chmod +x appimagetool
-	sudo mv appimagetool /usr/local/bin/
+	@echo "Installing Flutter and dependencies for Linux..."
+	@mkdir -p ~/develop
+	@cd ~/develop && wget -O flutter_linux-stable.tar.xz https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_3.19.4-stable.tar.xz && \
+	tar xf flutter_linux-stable.tar.xz && rm flutter_linux-stable.tar.xz
+	@echo 'export PATH="$$HOME/develop/flutter/bin:$$PATH"' >> ~/.zshrc
 
-	dart pub global activate --source git  https://github.com/hiddify/flutter_distributor --git-path packages/flutter_distributor
+	@echo 'export PATH="$$HOME/.pub-cache/bin:$$PATH"' >> ~/.zshrc
+	@sudo apt-get update
+	@sudo apt install -y clang ninja-build pkg-config cmake libgtk-3-dev locate libglib2.0-dev libgio2.0-cil-dev libayatana-appindicator3-dev fuse rpm patchelf file appstream
+
+	@sudo modprobe fuse
+	@wget -O appimagetool "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage"
+	@chmod +x appimagetool
+	@sudo mv appimagetool /usr/local/bin/
+
+	@dart pub global activate --source git https://github.com/hiddify/flutter_distributor --git-path packages/flutter_distributor
+
 
 windows-install-dependencies:
 	dart pub global activate flutter_distributor
@@ -145,8 +137,8 @@ gen_translations: #generating missing translations using google translate
 
 android-release: android-apk-release
 
-android-apk-release:
-	echo flutter build apk --target $(TARGET) $(BUILD_ARGS) --target-platform android-arm,android-arm64,android-x64 --split-per-abi --verbose  
+android-apk-release: build-android-libs
+	echo flutter build apk --target $(TARGET) $(BUILD_ARGS) --target-platform android-arm,android-arm64,android-x64 --split-per-abi --verbose
 	flutter build apk --target $(TARGET) $(BUILD_ARGS) --target-platform android-arm,android-arm64,android-x64 --verbose  
 	ls -R build/app/outputs
 
@@ -188,36 +180,101 @@ macos-libs:
 	mkdir -p  $(DESKTOP_OUT) 
 	curl -L $(CORE_URL)/$(CORE_NAME)-macos-universal.tar.gz | tar xz -C $(DESKTOP_OUT)
 
-ios-libs: #not tested
+# Download and prepare iOS framework
+# Note: The downloaded framework may be named HiddifyCore.xcframework but the project expects Libcore.xcframework
+# This target automatically handles the renaming to ensure compatibility
+ios-libs:
 	mkdir -p $(IOS_OUT)
 	rm -rf $(IOS_OUT)/Libcore.xcframework
-	curl -L $(CORE_URL)/$(CORE_NAME)-ios.tar.gz | tar xz -C "$(IOS_OUT)"
+	curl -L $(CORE_URL)/$(CORE_NAME)-ios.tar.gz | tar xz -C "$(IOS_OUT)/"
+	@# Auto-rename HiddifyCore.xcframework to Libcore.xcframework if needed
+	@if [ -d "$(IOS_OUT)/HiddifyCore.xcframework" ] && [ ! -d "$(IOS_OUT)/Libcore.xcframework" ]; then \
+		echo "Renaming HiddifyCore.xcframework to Libcore.xcframework..."; \
+		mv "$(IOS_OUT)/HiddifyCore.xcframework" "$(IOS_OUT)/Libcore.xcframework"; \
+	fi
+	@echo "iOS Libcore framework is ready at $(IOS_OUT)/Libcore.xcframework"
 
 get-geo-assets:
 	echo ""
 	# curl -L https://github.com/SagerNet/sing-geoip/releases/latest/download/geoip.db -o $(GEO_ASSETS_DIR)/geoip.db
 	# curl -L https://github.com/SagerNet/sing-geosite/releases/latest/download/geosite.db -o $(GEO_ASSETS_DIR)/geosite.db
 
-build-headers:
+check-libcore-submodule:
+	@echo "Checking libcore submodule..."
+	@if [ ! -d "libcore/.git" ]; then \
+		echo "Initializing libcore submodule..."; \
+		git submodule update --init --recursive libcore; \
+	else \
+		echo "Updating libcore submodule..."; \
+		git submodule update --remote libcore; \
+	fi
+	@if [ ! -f "libcore/Makefile" ]; then \
+		echo "Error: libcore submodule not properly initialized"; \
+		exit 1; \
+	fi
+
+build-headers: check-libcore-submodule
 	make -C libcore -f Makefile headers && mv $(BINDIR)/$(CORE_NAME)-headers.h $(BINDIR)/libcore.h
 
-build-android-libs:
-	make -C libcore -f Makefile android 
-	mv $(BINDIR)/$(LIB_NAME).aar $(ANDROID_OUT)/
+build-android-libs: check-libcore-submodule
+	@echo "Checking Go and gomobile installation..."
 
-build-windows-libs:
+	@if ! command -v go >/dev/null 2>&1; then \
+		echo "❌ Error: Go is not installed or not in PATH"; \
+		exit 1; \
+	fi
+
+	@export GOPATH=$$(go env GOPATH); \
+	export PATH="$$GOPATH/bin:$$PATH"; \
+	if ! command -v gomobile >/dev/null 2>&1; then \
+		echo "⚙️ Installing gomobile..."; \
+		go install golang.org/x/mobile/cmd/gomobile@latest; \
+		echo "✅ gomobile installed, initializing..."; \
+		$$GOPATH/bin/gomobile init; \
+	else \
+		echo "✅ gomobile already installed at: $$(which gomobile)"; \
+	fi
+
+	@echo "Go version: $$(go version)"
+	@echo "GOPATH: $$(go env GOPATH)"
+	@echo "PATH: $$PATH"
+
+	@echo "📦 Cleaning and preparing Android output directory..."
+	@$(RM) $(ANDROID_OUT)
+	@$(MKDIR) $(ANDROID_OUT)
+
+	@echo "🏗 Building Android AAR via libcore/Makefile..."
+	@export GOPATH=$$(go env GOPATH); \
+	export PATH="$$GOPATH/bin:$$PATH"; \
+	make -C libcore -f Makefile android
+
+	@echo "📁 Moving AAR to $(ANDROID_OUT)/"
+	@mv $(BINDIR)/$(LIB_NAME).aar $(ANDROID_OUT)/
+
+
+build-windows-libs: check-libcore-submodule
 	make -C libcore -f Makefile windows-amd64
 
-build-linux-libs:
+build-linux-libs: check-libcore-submodule
 	make -C libcore -f Makefile linux-amd64 
 
-build-macos-libs:
+build-macos-libs: check-libcore-submodule
 	make -C libcore -f Makefile macos-universal
 
-build-ios-libs: 
-	rf -rf $(IOS_OUT)/Libcore.xcframework 
+build-ios-libs: check-libcore-submodule
+	rm -rf $(IOS_OUT)/Libcore.xcframework 
 	make -C libcore -f Makefile ios  
-	mv $(BINDIR)/Libcore.xcframework $(IOS_OUT)/Libcore.xcframework
+	@# Handle potential naming differences from local build
+	@if [ -f "$(BINDIR)/Libcore.xcframework" ]; then \
+		mv "$(BINDIR)/Libcore.xcframework" "$(IOS_OUT)/"; \
+	elif [ -f "$(BINDIR)/HiddifyCore.xcframework" ]; then \
+		echo "Renaming HiddifyCore.xcframework to Libcore.xcframework..."; \
+		mv "$(BINDIR)/HiddifyCore.xcframework" "$(IOS_OUT)/Libcore.xcframework"; \
+	else \
+		echo "Error: No xcframework found in $(BINDIR)"; \
+		exit 1; \
+	fi
+	@echo "iOS Libcore framework built and ready at $(IOS_OUT)/Libcore.xcframework"
 
 release: # Create a new tag for release.
 	@CORE_VERSION=$(core.version) bash -c ".github/change_version.sh "

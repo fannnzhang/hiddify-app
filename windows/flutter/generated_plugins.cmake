@@ -4,6 +4,8 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   dynamic_color
+  flutter_timezone
+  permission_handler_windows
   protocol_handler_windows
   screen_retriever
   sentry_flutter

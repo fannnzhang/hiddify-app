@@ -24,6 +24,7 @@ import io.flutter.plugin.common.StandardMethodCodec
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
+import androidx.core.graphics.createBitmap
 
 
 class PlatformSettingsHandler : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware,
@@ -149,8 +150,8 @@ class PlatformSettingsHandler : FlutterPlugin, MethodChannel.MethodCallHandler, 
                                 list.add(
                                     AppItem(
                                         it.packageName,
-                                        it.applicationInfo.loadLabel(packageManager).toString(),
-                                        it.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM == 1
+                                        it.applicationInfo!!.loadLabel(packageManager).toString(),
+                                        it.applicationInfo!!.flags and ApplicationInfo.FLAG_SYSTEM == 1
                                     )
                                 )
                             }
@@ -167,11 +168,7 @@ class PlatformSettingsHandler : FlutterPlugin, MethodChannel.MethodCallHandler, 
                     val packageName =
                         args["packageName"] as String
                     val drawable = packageManager.getApplicationIcon(packageName)
-                    val bitmap = Bitmap.createBitmap(
-                        drawable.intrinsicWidth,
-                        drawable.intrinsicHeight,
-                        Bitmap.Config.ARGB_8888
-                    )
+                    val bitmap = createBitmap(drawable.intrinsicWidth, drawable.intrinsicHeight)
                     val canvas = Canvas(bitmap)
                     drawable.setBounds(0, 0, canvas.width, canvas.height)
                     drawable.draw(canvas)

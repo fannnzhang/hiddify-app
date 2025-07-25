@@ -15,7 +15,7 @@ on:
 env:
   IS_GITHUB_ACTIONS: 1
   CHANNEL: "${{ inputs.channel }}"
-  FLUTTER_VERSION: '3.24.0'
+  FLUTTER_VERSION: '3.29.0'
   NDK_VERSION: r26d
   UPLOAD_ARTIFACT: "${{ inputs.upload-artifact }}"
   TAG_NAME: "${{ inputs.tag-name }}"
@@ -137,11 +137,11 @@ jobs:
           add-to-path: true
           link-to-sdk: true
 
-      - name: Setup Gradle 8.1
+      - name: Setup Gradle 8.7
         if: startsWith(matrix.platform,'android')
         uses: gradle/actions/setup-gradle@v3
         with:
-          gradle-version: 7.5
+          gradle-version: 8.7
       - name: Setup dependencies
         run: |
           make ${{ matrix.platform }}-install-dependencies
